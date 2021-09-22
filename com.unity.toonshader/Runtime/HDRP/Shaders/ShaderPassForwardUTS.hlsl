@@ -283,7 +283,7 @@ void Frag(PackedVaryingsToPS packedInput,
 
 
 
-        int mainLightIndex = GetUtsMainLightIndex(builtinData);
+        int mainLightIndex = _DirectionalShadowIndex; // GetUtsMainLightIndex(builtinData);
         if ( mainLightIndex >= 0)
         {
 #if defined(UTS_DEBUG_SELFSHADOW)
