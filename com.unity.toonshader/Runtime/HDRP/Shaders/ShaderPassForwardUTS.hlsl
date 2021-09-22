@@ -282,8 +282,11 @@ void Frag(PackedVaryingsToPS packedInput,
         }
 
 
+	// because of light culling or light layer, we can not adopt this
+	// https://unity.slack.com/archives/C06V7HDDW/p1580959470180800
+	// int mainLightIndex = _DirectionalShadowIndex;
 
-        int mainLightIndex = _DirectionalShadowIndex; // GetUtsMainLightIndex(builtinData);
+        int mainLightIndex = GetUtsMainLightIndex(builtinData);
         if ( mainLightIndex >= 0)
         {
 #if defined(UTS_DEBUG_SELFSHADOW)
