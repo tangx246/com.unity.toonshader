@@ -165,7 +165,17 @@ void Frag(PackedVaryingsToPS packedInput,
 #endif
 
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(packedInput);
-    FragInputs input = UnpackVaryingsToFragInputs(packedInput);
+    
+    FragInputs input = UnpackVaryingsMeshToFragInputs(packedInput.vmesh);
+#if defined(PLATFORM_SUPPORTS_PRIMITIVE_ID_IN_PIXEL_SHADER) && SHADER_STAGE_FRAGMENT
+#if (defined(VARYINGS_NEED_PRIMITIVEID) || (SHADERPASS == SHADERPASS_FULL_SCREEN_DEBUG))
+    input.primitiveID = packedInput.primitiveID;
+#endif
+#endif
+
+#if defined(VARYINGS_NEED_CULLFACE) && SHADER_STAGE_FRAGMENT
+    input.isFrontFace = IS_FRONT_VFACE(packedInput.cullFace, true, false);
+#endif
 
     float4 Set_UV0 = input.texCoord0;
     UTSData utsData;
