@@ -158,11 +158,18 @@ void Frag(PackedVaryingsToPS packedInput,
 #endif
 )
 {
+#ifdef _WRITE_TRANSPARENT_MOTION_VECTOR
+    // Init outMotionVector here to solve compiler warning (potentially unitialized variable)
+    // It is init to the value of forceNoMotion (with 2.0)
+    outMotionVec = float4(2.0, 0.0, 0.0, 0.0);
+#endif
+
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(packedInput);
-    FragInputs input = UnpackVaryingsMeshToFragInputs(packedInput.vmesh);
+    FragInputs input = UnpackVaryingsToFragInputs(packedInput);
 
     float4 Set_UV0 = input.texCoord0;
     UTSData utsData;
+
     // We need to readapt the SS position as our screen space positions are for a low res buffer, but we try to access a full res buffer.
     input.positionSS.xy = _OffScreenRendering > 0 ? (input.positionSS.xy * _OffScreenDownsampleFactor) : input.positionSS.xy;
 
@@ -212,10 +219,10 @@ void Frag(PackedVaryingsToPS packedInput,
     // Initialize the contactShadow and contactShadowFade fields
     InitContactShadow(posInput, context);
 
-	float3 i_normalDir = surfaceData.normalWS;
+    float3 i_normalDir = surfaceData.normalWS;
 
 
-	float channelAlpha = 0.0f;
+    float channelAlpha = 0.0f;
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
     if (featureFlags & LIGHTFEATUREFLAGS_DIRECTIONAL)
     {
@@ -328,144 +335,6 @@ void Frag(PackedVaryingsToPS packedInput,
 
     }
 
-#if 0 // --------------------------------------------------------------------
-    AggregateLighting aggregateLighting;
-    ZERO_INITIALIZE(AggregateLighting, aggregateLighting); // LightLoop is in charge of initializing the struct
-
-
-    // ------------------- env --------------------
-    // Define macro for a better understanding of the loop
-    // TODO: this code is now much harder to understand...
-#define EVALUATE_BSDF_ENV_SKY(envLightData, TYPE, type) \
-        IndirectLighting lighting = EvaluateBSDF_Env(context, V, posInput, preLightData, envLightData, bsdfData, envLightData.influenceShapeType, MERGE_NAME(GPUIMAGEBASEDLIGHTINGTYPE_, TYPE), MERGE_NAME(type, HierarchyWeight)); \
-        AccumulateIndirectLighting(lighting, aggregateLighting);
-
-// Environment cubemap test lightlayers, sky don't test it
-#define EVALUATE_BSDF_ENV(envLightData, TYPE, type) if (IsMatchingLightLayer(envLightData.lightLayers, builtinData.renderingLayers)) { EVALUATE_BSDF_ENV_SKY(envLightData, TYPE, type) }
-
-
-    // First loop iteration
-    if (featureFlags & (LIGHTFEATUREFLAGS_ENV | LIGHTFEATUREFLAGS_SKY | LIGHTFEATUREFLAGS_SSREFRACTION | LIGHTFEATUREFLAGS_SSREFLECTION))
-    {
-        float reflectionHierarchyWeight = 0.0; // Max: 1.0
-        float refractionHierarchyWeight = _EnableSSRefraction ? 0.0 : 1.0; // Max: 1.0
-
-        uint envLightStart, envLightCount;
-
-        // Fetch first env light to provide the scene proxy for screen space computation
-#ifndef LIGHTLOOP_DISABLE_TILE_AND_CLUSTER
-        GetCountAndStart(posInput, LIGHTCATEGORY_ENV, envLightStart, envLightCount);
-#else   // LIGHTLOOP_DISABLE_TILE_AND_CLUSTER
-        envLightCount = _EnvLightCount;
-        envLightStart = 0;
-#endif
-
-        bool fastPath = false;
-#if SCALARIZE_LIGHT_LOOP
-        uint envStartFirstLane;
-        fastPath = IsFastPath(envLightStart, envStartFirstLane);
-#endif
-
-        // Reflection / Refraction hierarchy is
-        //  1. Screen Space Refraction / Reflection
-        //  2. Environment Reflection / Refraction
-        //  3. Sky Reflection / Refraction
-
-        // Apply SSR.
-#if !defined(_SURFACE_TYPE_TRANSPARENT) && !defined(_DISABLE_SSR)
-        {
-            IndirectLighting indirect = EvaluateBSDF_ScreenSpaceReflection(posInput, preLightData, bsdfData,
-                reflectionHierarchyWeight);
-            AccumulateIndirectLighting(indirect, aggregateLighting);
-        }
-#endif
-
-        EnvLightData envLightData;
-        if (envLightCount > 0)
-        {
-            envLightData = FetchEnvLight(envLightStart, 0);
-        }
-        else
-        {
-            envLightData = InitSkyEnvLightData(0);
-        }
-
-        if ((featureFlags & LIGHTFEATUREFLAGS_SSREFRACTION) && (_EnableSSRefraction > 0))
-        {
-            IndirectLighting lighting = EvaluateBSDF_ScreenspaceRefraction(context, V, posInput, preLightData, bsdfData, envLightData, refractionHierarchyWeight);
-            AccumulateIndirectLighting(lighting, aggregateLighting);
-        }
-
-        // Reflection probes are sorted by volume (in the increasing order).
-        if (featureFlags & LIGHTFEATUREFLAGS_ENV)
-        {
-            context.sampleReflection = SINGLE_PASS_CONTEXT_SAMPLE_REFLECTION_PROBES;
-
-#if SCALARIZE_LIGHT_LOOP
-            if (fastPath)
-            {
-                envLightStart = envStartFirstLane;
-            }
-#endif
-
-            // Scalarized loop, same rationale of the punctual light version
-            uint v_envLightListOffset = 0;
-            uint v_envLightIdx = envLightStart;
-            while (v_envLightListOffset < envLightCount)
-            {
-                v_envLightIdx = FetchIndex(envLightStart, v_envLightListOffset);
-                uint s_envLightIdx = ScalarizeElementIndex(v_envLightIdx, fastPath);
-                if (s_envLightIdx == -1)
-                    break;
-
-                EnvLightData s_envLightData = FetchEnvLight(s_envLightIdx);    // Scalar load.
-
-                // If current scalar and vector light index match, we process the light. The v_envLightListOffset for current thread is increased.
-                // Note that the following should really be ==, however, since helper lanes are not considered by WaveActiveMin, such helper lanes could
-                // end up with a unique v_envLightIdx value that is smaller than s_envLightIdx hence being stuck in a loop. All the active lanes will not have this problem.
-                if (s_envLightIdx >= v_envLightIdx)
-                {
-                    v_envLightListOffset++;
-                    if (reflectionHierarchyWeight < 1.0)
-                    {
-                        EVALUATE_BSDF_ENV(s_envLightData, REFLECTION, reflection);
-                    }
-                    // Refraction probe and reflection probe will process exactly the same weight. It will be good for performance to be able to share this computation
-                    // However it is hard to deal with the fact that reflectionHierarchyWeight and refractionHierarchyWeight have not the same values, they are independent
-                    // The refraction probe is rarely used and happen only with sphere shape and high IOR. So we accept the slow path that use more simple code and
-                    // doesn't affect the performance of the reflection which is more important.
-                    // We reuse LIGHTFEATUREFLAGS_SSREFRACTION flag as refraction is mainly base on the screen. Would be a waste to not use screen and only cubemap.
-                    if ((featureFlags & LIGHTFEATUREFLAGS_SSREFRACTION) && (refractionHierarchyWeight < 1.0))
-                    {
-                        EVALUATE_BSDF_ENV(s_envLightData, REFRACTION, refraction);
-                    }
-                }
-
-            }
-        }
-
-        // Only apply the sky IBL if the sky texture is available
-        if ((featureFlags & LIGHTFEATUREFLAGS_SKY) && _EnvLightSkyEnabled)
-        {
-            // The sky is a single cubemap texture separate from the reflection probe texture array (different resolution and compression)
-            context.sampleReflection = SINGLE_PASS_CONTEXT_SAMPLE_SKY;
-
-            // The sky data are generated on the fly so the compiler can optimize the code
-            EnvLightData envLightSky = InitSkyEnvLightData(0);
-
-            // Only apply the sky if we haven't yet accumulated enough IBL lighting.
-            if (reflectionHierarchyWeight < 1.0)
-            {
-                EVALUATE_BSDF_ENV_SKY(envLightSky, REFLECTION, reflection);
-            }
-
-            if ((featureFlags & LIGHTFEATUREFLAGS_SSREFRACTION) && (refractionHierarchyWeight < 1.0))
-            {
-                EVALUATE_BSDF_ENV_SKY(envLightSky, REFRACTION, refraction);
-            }
-        }
-    }
-#endif //#if 0 // --------------------------------------------------------------------
 
 #undef EVALUATE_BSDF_ENV
 #undef EVALUATE_BSDF_ENV_SKY
@@ -523,13 +392,8 @@ void Frag(PackedVaryingsToPS packedInput,
             if (s_lightIdx >= v_lightIdx)
             {
                 v_lightListOffset++;
-
-
                 if (IsMatchingLightLayer(s_lightData.lightLayers, builtinData.renderingLayers))
                 {
-
-                    float3 lightColor = 0;
-
                     float3 L;
                     float4 distances; // {d, d^2, 1/d, d_proj}
                     GetPunctualLightVectors(posInput.positionWS, s_lightData, L, distances);
