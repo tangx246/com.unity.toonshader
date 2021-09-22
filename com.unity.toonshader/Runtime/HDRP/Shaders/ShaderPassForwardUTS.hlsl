@@ -6,6 +6,14 @@
 #error SHADERPASS_is_not_correctly_define
 #endif
 
+
+#ifndef SCALARIZE_LIGHT_LOOP
+// We perform scalarization only for forward rendering as for deferred loads will already be scalar since tiles will match waves and therefore all threads will read from the same tile.
+// More info on scalarization: https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights/ .
+// Note that it is currently disabled on gamecore platforms for issues with wave intrinsics and the new compiler, it will be soon investigated, but we disable it in the meantime.
+#define SCALARIZE_LIGHT_LOOP (defined(PLATFORM_SUPPORTS_WAVE_INTRINSICS) && !defined(LIGHTLOOP_DISABLE_TILE_AND_CLUSTER) && !defined(SHADER_API_GAMECORE) && SHADERPASS == SHADERPASS_FORWARD)
+#endif
+
 #ifdef _WRITE_TRANSPARENT_MOTION_VECTOR
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/MotionVectorVertexShaderCommon.hlsl"
 
@@ -273,6 +281,8 @@ void Frag(PackedVaryingsToPS packedInput,
 
         }
 
+
+
         int mainLightIndex = GetUtsMainLightIndex(builtinData);
         if ( mainLightIndex >= 0)
         {
@@ -468,7 +478,7 @@ void Frag(PackedVaryingsToPS packedInput,
         lightStart = 0;
 #endif
          bool fastPath = false;
-#if SCALARIZE_LIGHT_LOOP
+    #if SCALARIZE_LIGHT_LOOP
         uint lightStartLane0;
         fastPath = IsFastPath(lightStart, lightStartLane0);
 
@@ -476,7 +486,7 @@ void Frag(PackedVaryingsToPS packedInput,
         {
             lightStart = lightStartLane0;
         }
-#endif
+    #endif
 
 
 
@@ -493,7 +503,11 @@ void Frag(PackedVaryingsToPS packedInput,
         while (v_lightListOffset < lightCount)
         {
             v_lightIdx = FetchIndex(lightStart, v_lightListOffset);
+#if SCALARIZE_LIGHT_LOOP
             uint s_lightIdx = ScalarizeElementIndex(v_lightIdx, fastPath);
+#else
+            uint s_lightIdx = v_lightIdx;
+#endif
             if (s_lightIdx == -1)
                 break;
 
