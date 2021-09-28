@@ -199,15 +199,14 @@ void Frag(PackedVaryingsToPS packedInput,
 #else
     uint featureFlags = LIGHT_FEATURE_MASK_FLAGS_OPAQUE;
 #endif
-    SurfaceData surfaceData;
-    BuiltinData builtinData;
+    SurfaceData surfaceData; // used to get  normalWS;
+    BuiltinData builtinData; // used to get lightlayersAndSoOn
     GetSurfaceAndBuiltinData(input, V, posInput, surfaceData, builtinData);
 
 
 
-    BSDFData bsdfData = ConvertSurfaceDataToBSDFData(input.positionSS.xy, surfaceData);
-
-    PreLightData preLightData = GetPreLightData(V, posInput, bsdfData);
+    BSDFData bsdfData = ConvertSurfaceDataToBSDFData(input.positionSS.xy, surfaceData); // used to calc shadow
+    PreLightData preLightData = GetPreLightData(V, posInput, bsdfData);                 // used to calc shadow
 
     outColor = float4(0.0, 0.0, 0.0, 0.0);
 
@@ -231,7 +230,7 @@ void Frag(PackedVaryingsToPS packedInput,
 
     float3 i_normalDir = surfaceData.normalWS;
 
-
+    int mainLightIndex = -1;
     float channelAlpha = 0.0f;
     float3 finalColor = float3(0.0f, 0.0f, 0.0f);
     if (featureFlags & LIGHTFEATUREFLAGS_DIRECTIONAL)
@@ -301,25 +300,28 @@ void Frag(PackedVaryingsToPS packedInput,
 
 	// because of light culling or light layer, we can not adopt this
 	// https://unity.slack.com/archives/C06V7HDDW/p1580959470180800
-	// int mainLightIndex = _DirectionalShadowIndex;
+        mainLightIndex = GetUtsMainLightIndex(builtinData);
 
-        int mainLightIndex = GetUtsMainLightIndex(builtinData);
         if ( mainLightIndex >= 0)
         {
+            DirectionalLightData lightData = _DirectionalLightDatas[mainLightIndex];
+            float3 lightColor = ApplyCurrentExposureMultiplier(lightData.color);
+            float3 lightDirection = -lightData.forward;
+
+                
 #if defined(UTS_DEBUG_SELFSHADOW)
             if (_DirectionalShadowIndex >= 0)
                 finalColor = UTS_SelfShdowMainLight(context, input, _DirectionalShadowIndex);
 #elif defined(_SHADINGGRADEMAP)|| defined(UTS_DEBUG_SHADOWMAP) 
-			finalColor = UTS_MainLightShadingGrademap(context, input, mainLightIndex, inverseClipping, channelAlpha, utsData);
+			finalColor = UTS_MainLightShadingGrademap(context, input, lightDirection, lightColor, inverseClipping, channelAlpha, utsData);
 #else
-			finalColor = UTS_MainLight(context, input, mainLightIndex, inverseClipping, channelAlpha, utsData);
+			finalColor = UTS_MainLight(context, input, lightDirection, lightColor, inverseClipping, channelAlpha, utsData);
 #endif
         }
 
 
 
         int i = 0; // Declare once to avoid the D3D11 compiler warning.
-
         for (i = 0; i < (int)_DirectionalLightCount; ++i)
         {
             if (IsMatchingLightLayer(_DirectionalLightDatas[i].lightLayers, builtinData.renderingLayers))
@@ -411,12 +413,37 @@ void Frag(PackedVaryingsToPS packedInput,
                         s_lightData.angleScale, s_lightData.angleOffset);
                     float3 additionalLightColor = ApplyCurrentExposureMultiplier(s_lightData.color) * attenuation;
                     const float notDirectional = 1.0f;
+
+                    float3 lightColor = ApplyCurrentExposureMultiplier(s_lightData.color);
+                    float3 lightDirection = -s_lightData.forward;
+
 #if defined(UTS_DEBUG_SELFSHADOW)
 
 #elif defined(_SHADINGGRADEMAP) || defined(UTS_DEBUG_SHADOWMAP) 
-                    finalColor += UTS_OtherLightsShadingGrademap(input, i_normalDir, additionalLightColor, L, notDirectional, channelAlpha);
+                    if (mainLightIndex == -1 && s_lightData.lightType == GPULIGHTTYPE_PROJECTOR_BOX)
+                    {
+                        float shadow = EvaluateShadow_Punctual(context, posInput, s_lightData, builtinData, GetNormalForShadowBias(bsdfData), L, distances);
+                        context.shadowValue = shadow; // min(context.shadowValue, shadow); // ComputeShadowColor(shadow, s_lightData.shadowTint, s_lightData.penumbraTint);
+
+                        finalColor += UTS_MainLightShadingGrademap(context, input, lightDirection, lightColor, inverseClipping, channelAlpha, utsData);
+                    }
+                    else
+                    {
+                        finalColor += UTS_OtherLightsShadingGrademap(input, i_normalDir, additionalLightColor, L, notDirectional, channelAlpha);
+                    }
+
+
 #else
-                    finalColor += UTS_OtherLights(input, i_normalDir, additionalLightColor, L, notDirectional, channelAlpha);
+                    if (mainLightIndex == -1 && s_lightData.lightType == GPULIGHTTYPE_PROJECTOR_BOX)
+                    {
+                        float shadow = EvaluateShadow_Punctual(context, posInput, s_lightData, builtinData, GetNormalForShadowBias(bsdfData), L, distances);
+                        context.shadowValue = shadow; // min(context.shadowValue, shadow); // ComputeShadowColor(shadow, s_lightData.shadowTint, s_lightData.penumbraTint);
+                        finalColor += UTS_MainLight(context, input, lightDirection, lightColor, inverseClipping, channelAlpha, utsData);
+                    }
+                    else
+                    {
+                        finalColor += UTS_OtherLights(input, i_normalDir, additionalLightColor, L, notDirectional, channelAlpha);
+                    }
 #endif
                 }
 
