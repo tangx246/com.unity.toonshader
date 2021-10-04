@@ -15,41 +15,25 @@ namespace Unity.Rendering.HighDefinition.Toon
     [DisallowMultipleComponent]
     public class BoxLightAdjustment : MonoBehaviour
     {
-        const string kExposureAdjustmentPorpName = "_ToonEvAdjustmentCurve";
-        const string kExposureArrayPropName = "_ToonEvAdjustmentValueArray";
-        const string kExposureMinPropName = "_ToonEvAdjustmentValueMin";
-        const string kExposureMaxPropName = "_ToonEvAdjustmentValueMax";
-        const string kToonLightFilterPropName = "_ToonLightHiCutFilter";
+
 
         // flags
         bool m_initialized = false;
         bool m_srpCallbackInitialized = false;
 
-        const int kAdjustmentCurvePrecision = 128;
+        [SerializeField]
+        GameObject[] m_Objs;
 
 
 
+        [SerializeField]
+        public Light m_targetBoxLight;
 
         [SerializeField]
-        internal bool m_ToonLightHiCutFilter = false;
-        [SerializeField]
-        internal bool m_ExposureAdjustmnt = false;
-        [SerializeField]
-        internal bool m_IgnorVolumeExposure = false;
-        [SerializeField]
-        internal AnimationCurve m_AnimationCurve = DefaultAnimationCurve();
-        [SerializeField]
-        internal float[] m_ExposureArray;
-        [SerializeField]
-        internal float m_Max, m_Min;
+        public bool  m_followGameObjectPosition = true;
 
-        public GameObject[] m_Objs;
         [SerializeField]
-//        [HideInInspector]
-        Renderer[] m_Renderers;
-        [SerializeField]
-//        [HideInInspector]
-        MaterialPropertyBlock[] m_MaterialPropertyBlocks;
+        public bool  m_followGameObjectRotation;
 
 #if UNITY_EDITOR
 #pragma warning restore CS0414
@@ -60,17 +44,13 @@ namespace Unity.Rendering.HighDefinition.Toon
         {
             OnDisable();
             OnEnable();
-            DefaultAnimationCurve();
+
         }
 
         void OnValidate()
         {
             Release();
             Initialize();
-        }
-        static AnimationCurve DefaultAnimationCurve()
-        {
-            return AnimationCurve.Linear(-10f, -10f, -1.32f, -1.32f);
         }
 
         private void Awake()
@@ -87,36 +67,10 @@ namespace Unity.Rendering.HighDefinition.Toon
         // Update is called once per frame
         void Update()
         {
-            if (m_Renderers == null || m_Renderers.Length == 0)
-            {
-                return;
-            }
+
 
             Initialize();
 
-
-
-            // Fail safe in case the curve is deleted / has 0 point
-            var curve = m_AnimationCurve;
-
-
-            if (curve == null || curve.length == 0)
-            {
-                m_Min = 0f;
-                m_Max = 0f;
-
-                for (int i = 0; i < kAdjustmentCurvePrecision; i++)
-                    m_ExposureArray[i] = 0.0f;
-            }
-            else
-            {
-                m_Min = curve[0].time;
-                m_Max = curve[curve.length - 1].time;
-                float step = (m_Max - m_Min) / (kAdjustmentCurvePrecision - 1f);
-
-                for (int i = 0; i < kAdjustmentCurvePrecision; i++)
-                    m_ExposureArray[i] = curve.Evaluate(m_Min + step * i);
-            }
 
 
 #if UNITY_EDITOR
@@ -134,24 +88,6 @@ namespace Unity.Rendering.HighDefinition.Toon
                 m_isCompiling = false;
             }
 #endif
-
-
-
-            int length = m_Renderers.Length;
-            for (int ii = 0; ii < length; ii++)
-            {
-                m_Renderers[ii].GetPropertyBlock(m_MaterialPropertyBlocks[ii]);
-
-//                materialPropertyBlocks[ii].SetColor("_UnlitColor", col);
-                m_MaterialPropertyBlocks[ii].SetFloatArray(kExposureArrayPropName, m_ExposureArray);
-                m_MaterialPropertyBlocks[ii].SetFloat(kExposureMinPropName, m_Min);
-                m_MaterialPropertyBlocks[ii].SetFloat(kExposureMaxPropName, m_Max);
-                m_MaterialPropertyBlocks[ii].SetInt(kExposureAdjustmentPorpName, m_ExposureAdjustmnt ? 1 : 0);
-                m_MaterialPropertyBlocks[ii].SetInt(kToonLightFilterPropName, m_ToonLightHiCutFilter ? 1 : 0);
-
-
-                m_Renderers[ii].SetPropertyBlock(m_MaterialPropertyBlocks[ii]);
-            }
 
         }
         void EnableSrpCallbacks()
@@ -242,22 +178,7 @@ namespace Unity.Rendering.HighDefinition.Toon
                     }
                 }
             }
-            if (rendererCount != 0)
-            {
- 
-                m_MaterialPropertyBlocks = new MaterialPropertyBlock[rendererCount];
-                m_Renderers = rendererList.ToArray();
 
-
-                for (int ii = 0; ii < rendererCount; ii++)
-                {
-                    m_MaterialPropertyBlocks[ii] = new MaterialPropertyBlock();
-                }
-            }
-            if (m_ExposureArray == null || m_ExposureArray.Length != kAdjustmentCurvePrecision)
-            {
-                m_ExposureArray = new float[kAdjustmentCurvePrecision];
-            }
             m_initialized = true;
         }
 
@@ -266,17 +187,8 @@ namespace Unity.Rendering.HighDefinition.Toon
         {
             if (m_initialized)
             {
-                m_ExposureArray = null;
-                if (m_Renderers != null )
-                {
-                    int length = m_Renderers.Length;
-                    for (int ii = 0; ii < length; ii++)
-                    {
-                        m_Renderers[ii].SetPropertyBlock(null);
-                    }
-                }
-                m_Renderers = null;
-                m_MaterialPropertyBlocks = null;
+
+
             }
 
             m_initialized = false;

@@ -14,7 +14,7 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
         public override void OnInspectorGUI()
         {
             const string labelBoxLight = "Box Light";
-            const string labelTargetGameObject = "Target Game Object";
+  
             const string labelFollowPostion = "Follow Position";
             const string labelFollowRotation = "Follow Rotation";
 
@@ -30,13 +30,38 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
             Light targetLight = EditorGUILayout.ObjectField(obj.m_targetBoxLight, typeof(Light), true) as Light;
             if (EditorGUI.EndChangeCheck())
             {
-                Undo.RecordObject(target, "Changed Ignore Volume Exposure");
+                Undo.RecordObject(target, "Changed the target box lihgt");
                 obj.m_targetBoxLight = targetLight;
                 isChanged = true;
             }
+
             EditorGUILayout.EndHorizontal();
 
+            EditorGUI.BeginDisabledGroup(targetLight == null);
+            {
+                EditorGUI.indentLevel++;
+                // hi cut filter
+                EditorGUI.BeginChangeCheck();
 
+                bool followPosition = EditorGUILayout.Toggle(labelFollowPostion, obj.m_followGameObjectPosition);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(target, "Changed Light Hi Cut Filter");
+                    obj.m_followGameObjectPosition = followPosition;
+                    isChanged = true;
+                }
+
+                // curve
+                EditorGUI.BeginChangeCheck();
+                bool followRotation = EditorGUILayout.Toggle(labelFollowRotation, obj.m_followGameObjectRotation);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(target, "Changed Expsure Adjustment");
+                    obj.m_followGameObjectRotation = followRotation;
+                    isChanged = true;
+                }
+                EditorGUI.indentLevel--;
+            }
             if (isChanged)
             {
                 // at leaset 2020.3.12f1, not neccessary. but, from which version??
