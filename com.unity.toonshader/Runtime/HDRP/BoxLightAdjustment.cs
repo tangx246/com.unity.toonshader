@@ -10,6 +10,7 @@ using UnityObject = UnityEngine.Object;
 using System.Linq;
 
 #if HDRP_IS_INSTALLED_FOR_UTS
+using UnityEngine.Rendering.HighDefinition;
 
 namespace Unity.Rendering.HighDefinition.Toon
 {
@@ -29,7 +30,7 @@ namespace Unity.Rendering.HighDefinition.Toon
 
 
         [SerializeField]
-        internal Light m_targetBoxLight;
+        internal HDAdditionalLightData m_targetBoxLight;
 
         [SerializeField]
         internal bool  m_followGameObjectPosition = true;

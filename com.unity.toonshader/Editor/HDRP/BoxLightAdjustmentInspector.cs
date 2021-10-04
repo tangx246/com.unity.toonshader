@@ -32,7 +32,7 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
 
             EditorGUI.BeginChangeCheck();
             EditorGUILayout.LabelField(labelBoxLight);
-            Light targetLight = EditorGUILayout.ObjectField(obj.m_targetBoxLight, typeof(Light), true) as Light;
+            HDAdditionalLightData targetLight = EditorGUILayout.ObjectField(obj.m_targetBoxLight, typeof(HDAdditionalLightData), true) as HDAdditionalLightData;
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(target, "Changed the target box lihgt");
@@ -45,6 +45,7 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
             EditorGUI.BeginDisabledGroup(targetLight == null);
             {
                 EditorGUI.indentLevel++;
+                /*
                 var layer = targetLight.gameObject.layer;
                 List<string> layerNames = new List<string>();
                 List<int> layerIndecies = new List<int>();
@@ -57,8 +58,12 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
                         layerNames.Add(layerName);
                         layerIndecies.Add(ii);
                     }
-                }
-                
+                }*/
+                HDAdditionalLightData lightData = targetLight.GetComponent<HDAdditionalLightData>();
+                var lightLayer = lightData.lightlayersMask;
+
+
+
 
                 EditorGUI.BeginChangeCheck();
 
@@ -116,11 +121,11 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
             if (go != null)
             {
                 GameObject lightGameObject = new GameObject("Box Light for" + go.name);
-                Light lightComp = lightGameObject.AddComponent<Light>();
-                lightComp.type = LightType.Spot;
+                HDAdditionalLightData hdLightData = lightGameObject.AddHDLight(HDLightTypeAndShape.BoxSpot);
+
 
                 var boxLightAdjustment = go.AddComponent<BoxLightAdjustment>();
-                boxLightAdjustment.m_targetBoxLight = lightComp;
+                boxLightAdjustment.m_targetBoxLight = hdLightData;
             }
             else
             {
