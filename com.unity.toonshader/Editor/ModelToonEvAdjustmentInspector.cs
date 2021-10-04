@@ -10,9 +10,7 @@ namespace UnityEditor.Rendering.Toon
     public class ModelToonEvAdjustmentInspector : Editor
     {
         SerializedObject m_SerializedObject;
-#if ADJUSTMENT_CURVE_DEBUG_UI
-        string numberString = "1";
-#endif //
+
         public override void OnInspectorGUI()
         {
             const string labelLightAdjustment = "Toon EV Adjustment";
@@ -20,10 +18,7 @@ namespace UnityEditor.Rendering.Toon
             const string labelLightHighCutFilter = "Light High-Cut Filter";
             const string labeIgnoreVolumeExposure = "Ignore Volume Exposure";
 
-#if ADJUSTMENT_CURVE_DEBUG_UI
-            const string labelExposureMin = "Min:";
-            const string labelExposureMax = "Max:";
-#endif
+
             bool isChanged = false;
 
             var obj = target as ModelToonEvAdjustment;
