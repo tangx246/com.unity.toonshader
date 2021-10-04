@@ -140,20 +140,10 @@ namespace UnityEditor.Rendering.Toon
         }
 
 
-        [MenuItem("GameObject/Toon Shader/Attach Model Toon Ev Adjustment", true)]
-        static bool ValidateLogSelectedTransformName()
-        {
-            if (Selection.activeGameObject == null)
-            {
-                return false;
-            }
-            return true;
-        }
-
 
 
         [MenuItem("GameObject/Toon Shader/Attach Model Toon Ev Adjustment", false, 9999)]
-        static void CreateToonEvAdjustmentCurveGameObject()
+        static void AttachToonEvAdjustmentCurve()
         {
 
             var go = Selection.activeGameObject;

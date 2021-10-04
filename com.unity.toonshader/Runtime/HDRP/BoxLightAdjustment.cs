@@ -228,7 +228,7 @@ namespace Unity.Rendering.HighDefinition.Toon
                 {
                     if (m_Objs[ii] == childGameObjects[jj])
                         continue;
-                    var modelToonEvAdjustment = childGameObjects[jj].GetComponent<ModelToonEvAdjustment>();
+                    var modelToonEvAdjustment = childGameObjects[jj].GetComponent<BoxLightAdjustment>();
                     if ( modelToonEvAdjustment != null )
                     {
 
