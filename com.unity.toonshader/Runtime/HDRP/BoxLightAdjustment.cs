@@ -9,6 +9,8 @@ using UnityEngine.Experimental.Rendering;
 using UnityObject = UnityEngine.Object;
 using System.Linq;
 
+#if HDRP_IS_INSTALLED_FOR_UTS
+
 namespace Unity.Rendering.HighDefinition.Toon
 {
     [ExecuteAlways]
@@ -197,3 +199,4 @@ namespace Unity.Rendering.HighDefinition.Toon
 
     }
 }
+#endif  // HDRP_IS_INSTALLED_FOR_UTS

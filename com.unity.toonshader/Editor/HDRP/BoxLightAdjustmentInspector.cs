@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using Unity.Rendering.HighDefinition.Toon;
+
+#if HDRP_IS_INSTALLED_FOR_UTS
+
+
+
 namespace UnityEditor.Rendering.HighDefinition.Toon
 {
     [CustomEditor(typeof(BoxLightAdjustment))]
@@ -14,17 +19,16 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
         public override void OnInspectorGUI()
         {
             const string labelBoxLight = "Box Light";
-  
             const string labelFollowPostion = "Follow Position";
             const string labelFollowRotation = "Follow Rotation";
-
+            const string labelLightLeyer = "Light Layer";
 
             bool isChanged = false;
 
             var obj = target as BoxLightAdjustment;
 
             EditorGUILayout.BeginHorizontal();
-            // hi cut filter
+
             EditorGUI.BeginChangeCheck();
             EditorGUILayout.LabelField(labelBoxLight);
             Light targetLight = EditorGUILayout.ObjectField(obj.m_targetBoxLight, typeof(Light), true) as Light;
@@ -40,6 +44,20 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
             EditorGUI.BeginDisabledGroup(targetLight == null);
             {
                 EditorGUI.indentLevel++;
+                var layer = targetLight.gameObject.layer;
+                List<string> layerNames = new List<string>();
+                List<int> layerIndecies = new List<int>();
+
+                for (int ii = 0; ii < 32; ii++)
+                {
+                    string layerName = LayerMask.LayerToName(ii);
+                    if (!string.IsNullOrEmpty(layerName))
+                    {
+                        layerNames.Add(layerName);
+                        layerIndecies.Add(ii);
+                    }
+                }
+                
 
                 EditorGUI.BeginChangeCheck();
 
@@ -111,3 +129,4 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
 
     }
 }
+#endif
