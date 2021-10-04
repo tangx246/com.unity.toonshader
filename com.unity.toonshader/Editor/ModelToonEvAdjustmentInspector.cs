@@ -147,7 +147,12 @@ namespace UnityEditor.Rendering.Toon
         {
 
             var go = Selection.activeGameObject;
-            go.AddComponent<ModelToonEvAdjustment>();
+            if (go == null)
+               go.AddComponent<ModelToonEvAdjustment>();
+            else
+            {
+                Debug.LogError("Please, select a GameObject you want to attach.");
+            }
 
         }
 
