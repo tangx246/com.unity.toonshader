@@ -40,7 +40,7 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
             EditorGUI.BeginDisabledGroup(targetLight == null);
             {
                 EditorGUI.indentLevel++;
-                // hi cut filter
+
                 EditorGUI.BeginChangeCheck();
 
                 bool followPosition = EditorGUILayout.Toggle(labelFollowPostion, obj.m_followGameObjectPosition);
@@ -51,7 +51,6 @@ namespace UnityEditor.Rendering.HighDefinition.Toon
                     isChanged = true;
                 }
 
-                // curve
                 EditorGUI.BeginChangeCheck();
                 bool followRotation = EditorGUILayout.Toggle(labelFollowRotation, obj.m_followGameObjectRotation);
                 if (EditorGUI.EndChangeCheck())
